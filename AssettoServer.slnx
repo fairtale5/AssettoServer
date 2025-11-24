@@ -12,6 +12,7 @@
   <Project Path="NoclipCountdownPlugin\NoclipCountdownPlugin.csproj" Type="Classic C#" />
   <Project Path="RaceChallengePlugin\RaceChallengePlugin.csproj" Type="Classic C#" />
   <Project Path="RandomWeatherPlugin\RandomWeatherPlugin.csproj" Type="Classic C#" />
+  <Project Path="RuleViolationNoclipPlugin\RuleViolationNoclipPlugin.csproj" Type="Classic C#" />
   <Project Path="ReplayPlugin\ReplayPlugin.csproj" Type="Classic C#" />
   <Project Path="ReportPlugin\ReportPlugin.csproj" Type="Classic C#" />
   <Project Path="SamplePlugin\SamplePlugin.csproj" Type="Classic C#" />
