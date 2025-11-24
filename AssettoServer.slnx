@@ -9,6 +9,7 @@
   <Project Path="FastTravelPlugin\FastTravelPlugin.csproj" Type="Classic C#" />
   <Project Path="GeoIPPlugin\GeoIPPlugin.csproj" Type="Classic C#" />
   <Project Path="LiveWeatherPlugin\LiveWeatherPlugin.csproj" Type="Classic C#" />
+  <Project Path="NoclipCountdownPlugin\NoclipCountdownPlugin.csproj" Type="Classic C#" />
   <Project Path="RaceChallengePlugin\RaceChallengePlugin.csproj" Type="Classic C#" />
   <Project Path="RandomWeatherPlugin\RandomWeatherPlugin.csproj" Type="Classic C#" />
   <Project Path="ReplayPlugin\ReplayPlugin.csproj" Type="Classic C#" />
