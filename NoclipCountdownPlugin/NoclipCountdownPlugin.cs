@@ -16,6 +16,7 @@ public class NoclipCountdownPlugin : BackgroundService
     private readonly Dictionary<byte, CancellationTokenSource> _activeTimers = new();
     private bool _isRaceInProgress = false;
     private long _raceStartTimeMilliseconds = 0;
+    private CancellationTokenSource? _raceStartScheduler;
 
     public NoclipCountdownPlugin(
         NoclipCountdownConfiguration configuration,
@@ -30,9 +31,6 @@ public class NoclipCountdownPlugin : BackgroundService
 
         // Subscribe to session changes
         _sessionManager.SessionChanged += OnSessionChanged;
-        
-        // Subscribe to client connections for late joiners
-        _entryCarManager.ClientConnected += OnClientConnected;
     }
 
     private void OnSessionChanged(SessionManager sender, SessionChangedEventArgs args)
@@ -52,53 +50,54 @@ public class NoclipCountdownPlugin : BackgroundService
             if (_isRaceInProgress)
             {
                 CleanupAllTimers();
+                _raceStartScheduler?.Cancel();
+                _raceStartScheduler?.Dispose();
+                _raceStartScheduler = null;
                 _isRaceInProgress = false;
             }
             return;
         }
 
-        // Race or qualifying session started
+        // Race or qualifying session announced
         _isRaceInProgress = true;
-        _raceStartTimeMilliseconds = _sessionManager.ServerTimeMilliseconds;
+        _raceStartTimeMilliseconds = args.NextSession.StartTimeMilliseconds;
         
-        Log.Information("Noclip countdown activated for {SessionType} session", sessionType);
+        Log.Information("Noclip countdown scheduled for {SessionType} session (starts in {Delay}s)", 
+            sessionType, 
+            (_raceStartTimeMilliseconds - _sessionManager.ServerTimeMilliseconds) / 1000);
 
-        // Apply grace window to all connected cars
-        ApplyCollisionGraceWindow();
-    }
-
-    private void OnClientConnected(ACTcpClient client, EventArgs eventArgs)
-    {
-        if (!_configuration.Enabled || !_isRaceInProgress)
-            return;
-
-        // Check if we're in a race or qualifying session
-        var currentSession = _sessionManager.CurrentSession;
-        if (currentSession == null)
-            return;
-
-        var sessionType = currentSession.Configuration.Type;
-        bool shouldEnable = sessionType == SessionType.Race ||
-                           (sessionType == SessionType.Qualifying && _configuration.EnableForQualification);
-
-        if (!shouldEnable)
-            return;
-
-        // Late joiner - apply grace window with remaining time
-        var elapsedSeconds = (int)((_sessionManager.ServerTimeMilliseconds - _raceStartTimeMilliseconds) / 1000);
-        var remainingSeconds = Math.Max(0, _configuration.MaxSeconds - elapsedSeconds);
+        // Cancel any existing scheduler
+        _raceStartScheduler?.Cancel();
+        _raceStartScheduler?.Dispose();
         
-        if (remainingSeconds > 0)
+        // Schedule collision disabling to happen when race actually starts (at StartTimeMilliseconds)
+        _raceStartScheduler = new CancellationTokenSource();
+        long delayMs = _raceStartTimeMilliseconds - _sessionManager.ServerTimeMilliseconds;
+        
+        if (delayMs > 0)
         {
-            var randomSeconds = Random.Shared.Next(
-                Math.Min(_configuration.MinSeconds, remainingSeconds),
-                remainingSeconds + 1
-            );
-            
-            ApplyGraceWindowToCar(client.EntryCar, randomSeconds);
-            
-            Log.Debug("Applied noclip countdown to late joiner {SessionId}, remaining time: {Seconds}s", 
-                client.SessionId, randomSeconds);
+            // Race hasn't started yet - schedule for when it does
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay((int)delayMs, _raceStartScheduler.Token);
+                    
+                    // Race has started - apply grace window to all cars
+                    Log.Information("Race started - applying noclip countdown to all cars");
+                    ApplyCollisionGraceWindow();
+                }
+                catch (OperationCanceledException)
+                {
+                    // Scheduler was cancelled (session changed)
+                }
+            }, _raceStartScheduler.Token);
+        }
+        else
+        {
+            // Race already started (shouldn't happen, but handle it)
+            Log.Warning("Race start time has already passed, applying noclip countdown immediately");
+            ApplyCollisionGraceWindow();
         }
     }
 
@@ -184,6 +183,8 @@ public class NoclipCountdownPlugin : BackgroundService
     public override void Dispose()
     {
         CleanupAllTimers();
+        _raceStartScheduler?.Cancel();
+        _raceStartScheduler?.Dispose();
         base.Dispose();
     }
 }
