@@ -1,4 +1,4 @@
-# RuleViolationNoclipPlugin
+# NoclipPenaltiesPlugin
 
 Automatically applies noclip penalties to players who violate server rules. Uses a progressive stacking system where repeated violations result in longer noclip durations and cooldown periods.
 
@@ -6,7 +6,6 @@ Automatically applies noclip penalties to players who violate server rules. Uses
 
 - **Progressive Penalty System**: Violations stack up, with each stack level having longer noclip duration and cooldown
 - **Collision Detection**: Tracks car-to-car and car-to-environment collisions above a speed threshold
-- **Corner Cutting Detection**: Uses AC's built-in track limit violation detection (corner cuts)
 - **Stack Decay**: Clean driving reduces stack level over time
 - **Configurable Timers**: Fully customizable noclip durations and cooldown periods per stack level
 - **Chat Notifications**: Optional messages when penalties are applied, expire, or stack changes
@@ -16,7 +15,6 @@ Automatically applies noclip penalties to players who violate server rules. Uses
 ### Violation Types
 
 1. **Collisions**: Car-to-car or car-to-environment collisions above the configured speed threshold
-2. **Corner Cutting**: Track limit violations detected by AC (reported in lap completion packets)
 
 ### Stack System
 
@@ -60,10 +58,10 @@ Add to `extra_cfg.yml`:
 
 ```yaml
 EnablePlugins:
-  - RuleViolationNoclipPlugin
+  - NoclipPenaltiesPlugin
 ```
 
-Create `cfg/plugin_rule_violation_noclip_cfg.yml`:
+Create `cfg/plugin_noclip_penalties_cfg.yml`:
 
 ```yaml
 # Enable automatic noclip penalties for rule violations
@@ -72,11 +70,8 @@ Enabled: true
 # Minimum relative speed (km/h) for collision to count as violation
 MinCollisionSpeedKph: 20.0
 
-# Count corner cuts (track limit violations) as violations
-EnableCornerCutPenalty: true
-
-# Minimum number of cuts per lap to trigger penalty
-MinCutsPerLap: 1
+# Minimum time between violations (seconds). Prevents rapid stacking from bouncing or multiple collisions
+MinimumViolationIntervalSeconds: 10
 
 # Stack 1: First offense
 Stack1NoclipSeconds: 5
@@ -122,8 +117,7 @@ NameUpdateIntervalMs: 100
 
 - **Enabled**: Enable/disable the plugin
 - **MinCollisionSpeedKph**: Minimum relative speed for collisions to count (default: 20 km/h)
-- **EnableCornerCutPenalty**: Enable corner cutting detection (default: true)
-- **MinCutsPerLap**: Minimum number of cuts per lap to trigger penalty (default: 1)
+- **MinimumViolationIntervalSeconds**: Minimum time between violations to prevent rapid stacking (default: 10 seconds)
 
 ### Stack Configuration
 
@@ -170,9 +164,9 @@ Stack 5+ uses:
 
 1. Player collides → **Stack 1**: 5s noclip, 30s cooldown
 2. Player collides again within 30s → **Stack 2**: 15s noclip, 60s cooldown
-3. Player cuts corner within 60s → **Stack 3**: 30s noclip, 120s cooldown
-4. Player collides again within 120s → **Stack 4**: 60s noclip, 300s cooldown
-5. Player collides again within 300s → **Stack 5**: 120s noclip, 600s cooldown
+3. Player collides again within 60s → **Stack 3**: 30s noclip, 120s cooldown
+4. Player collides again within 120s → **Stack 4**: 60s noclip, 240s cooldown
+5. Player collides again within 240s → **Stack 5**: 120s noclip, 360s cooldown
 
 ### Scenario 3: Clean Driving Recovery
 
@@ -191,9 +185,9 @@ Stack 5+ uses:
 
 - Uses `EntryCar.SetCollisions()` to toggle collisions per car
 - Subscribes to `ACTcpClient.Collision` for collision detection
-- Subscribes to `ACTcpClient.LapCompleted` for corner cutting detection
-- Tracks violations per car using `EntryCarRuleViolation` instances
+- Tracks violations per car using `EntryCarPenalties` instances
 - Implements progressive stacking with decay system
+- Enforces minimum time interval between violations to prevent rapid stacking
 
 ## Building
 

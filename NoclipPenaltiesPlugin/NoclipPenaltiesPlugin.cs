@@ -5,24 +5,27 @@ using AssettoServer.Shared.Model;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
-namespace RuleViolationNoclipPlugin;
+namespace NoclipPenaltiesPlugin;
 
-public class RuleViolationNoclipPlugin : BackgroundService
+public class NoclipPenaltiesPlugin : BackgroundService
 {
-    private readonly RuleViolationNoclipConfiguration _configuration;
+    private readonly NoclipPenaltiesConfiguration _configuration;
     private readonly EntryCarManager _entryCarManager;
     private readonly SessionManager _sessionManager;
-    private readonly Dictionary<byte, EntryCarRuleViolation> _trackers = new();
+    private readonly ACServerConfiguration _serverConfiguration;
+    private readonly Dictionary<byte, EntryCarPenalties> _trackers = new();
     private bool _namesResetForCurrentRace = false;
 
-    public RuleViolationNoclipPlugin(
-        RuleViolationNoclipConfiguration configuration,
+    public NoclipPenaltiesPlugin(
+        NoclipPenaltiesConfiguration configuration,
         EntryCarManager entryCarManager,
-        SessionManager sessionManager)
+        SessionManager sessionManager,
+        ACServerConfiguration serverConfiguration)
     {
         _configuration = configuration;
         _entryCarManager = entryCarManager;
         _sessionManager = sessionManager;
+        _serverConfiguration = serverConfiguration;
 
         // Subscribe to client connections
         _entryCarManager.ClientConnected += OnClientConnected;
@@ -30,6 +33,10 @@ public class RuleViolationNoclipPlugin : BackgroundService
         
         // Subscribe to session changes to reset names before leaderboard
         _sessionManager.SessionChanged += OnSessionChanged;
+        
+        Log.Information("NoclipPenaltiesPlugin initialized: Enabled={Enabled}, MinCollisionSpeedKph={MinCollisionSpeedKph}",
+            _configuration.Enabled,
+            _configuration.MinCollisionSpeedKph);
     }
     
     private void OnSessionChanged(SessionManager sender, SessionChangedEventArgs args)
@@ -65,11 +72,12 @@ public class RuleViolationNoclipPlugin : BackgroundService
             return;
 
         // Create tracker for this car
-        var tracker = new EntryCarRuleViolation(
+        var tracker = new EntryCarPenalties(
             client.EntryCar,
             _configuration,
             _sessionManager,
-            _entryCarManager);
+            _entryCarManager,
+            _serverConfiguration);
 
         _trackers[client.SessionId] = tracker;
 
@@ -82,16 +90,9 @@ public class RuleViolationNoclipPlugin : BackgroundService
             }
         };
 
-        // Subscribe to lap completion events (for corner cutting)
-        client.LapCompleted += (sender, lapArgs) =>
-        {
-            if (_trackers.TryGetValue(sender.SessionId, out var t))
-            {
-                t.OnLapCompleted(lapArgs);
-            }
-        };
-
-        Log.Debug("Created rule violation tracker for {PlayerName}", client.Name);
+        Log.Information("NoclipPenaltiesPlugin: Created tracker for {PlayerName} (Enabled: {Enabled})",
+            client.Name,
+            _configuration.Enabled);
     }
 
     private void OnClientDisconnected(ACTcpClient client, EventArgs args)

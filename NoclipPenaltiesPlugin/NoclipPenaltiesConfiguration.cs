@@ -2,22 +2,16 @@ using AssettoServer.Server.Configuration;
 using JetBrains.Annotations;
 using YamlDotNet.Serialization;
 
-namespace RuleViolationNoclipPlugin;
+namespace NoclipPenaltiesPlugin;
 
 [UsedImplicitly(ImplicitUseKindFlags.Assign, ImplicitUseTargetFlags.WithMembers)]
-public class RuleViolationNoclipConfiguration
+public class NoclipPenaltiesConfiguration
 {
     [YamlMember(Description = "Enable automatic noclip penalties for rule violations")]
     public bool Enabled { get; init; } = true;
 
     [YamlMember(Description = "Minimum relative speed (km/h) for collision to count as violation")]
     public float MinCollisionSpeedKph { get; init; } = 20.0f;
-
-    [YamlMember(Description = "Count corner cuts (track limit violations) as violations")]
-    public bool EnableCornerCutPenalty { get; init; } = true;
-
-    [YamlMember(Description = "Minimum number of cuts per lap to trigger penalty")]
-    public int MinCutsPerLap { get; init; } = 1;
 
     [YamlMember(Description = "Stack 1: First offense noclip duration (seconds)")]
     public int Stack1NoclipSeconds { get; init; } = 5;
@@ -69,5 +63,8 @@ public class RuleViolationNoclipConfiguration
 
     [YamlMember(Description = "Update name prefix interval in milliseconds (100 = 0.1s)")]
     public int NameUpdateIntervalMs { get; init; } = 100;
+
+    [YamlMember(Description = "Minimum time between violations (seconds). Prevents rapid stacking from bouncing or multiple collisions")]
+    public int MinimumViolationIntervalSeconds { get; init; } = 10;
 }
 

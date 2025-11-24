@@ -1,14 +1,15 @@
 using AssettoServer.Network.Tcp;
 using AssettoServer.Server;
+using AssettoServer.Server.Configuration;
 using AssettoServer.Shared.Network.Packets.Outgoing;
 using Serilog;
 
-namespace RuleViolationNoclipPlugin;
+namespace NoclipPenaltiesPlugin;
 
-public class EntryCarRuleViolation
+public class EntryCarPenalties
 {
     private readonly EntryCar _entryCar;
-    private readonly RuleViolationNoclipConfiguration _configuration;
+    private readonly NoclipPenaltiesConfiguration _configuration;
     private readonly SessionManager _sessionManager;
     private readonly EntryCarManager _entryCarManager;
 
@@ -19,13 +20,15 @@ public class EntryCarRuleViolation
     private CancellationTokenSource? _decayTimer;
     private CancellationTokenSource? _nameUpdateTimer;
     private long _lastCleanDrivingTimeMilliseconds = 0;
+    private long _lastViolationTimeMilliseconds = 0; // Track last violation time to prevent rapid stacking
     private string? _originalName;
 
-    public EntryCarRuleViolation(
+    public EntryCarPenalties(
         EntryCar entryCar,
-        RuleViolationNoclipConfiguration configuration,
+        NoclipPenaltiesConfiguration configuration,
         SessionManager sessionManager,
-        EntryCarManager entryCarManager)
+        EntryCarManager entryCarManager,
+        ACServerConfiguration serverConfiguration)
     {
         _entryCar = entryCar;
         _configuration = configuration;
@@ -45,7 +48,7 @@ public class EntryCarRuleViolation
             StartNameUpdateTimer();
         }
     }
-
+    
     public void OnCollision(CollisionEventArgs args)
     {
         if (!_configuration.Enabled)
@@ -55,31 +58,18 @@ public class EntryCarRuleViolation
         if (args.Speed < _configuration.MinCollisionSpeedKph)
             return;
 
-        OnViolation();
-
-        // Check if we're in cooldown period
-        if (_sessionManager.ServerTimeMilliseconds < _cooldownUntilMilliseconds)
+        // Check minimum time between violations (prevents rapid stacking from multiple collisions)
+        long currentTime = _sessionManager.ServerTimeMilliseconds;
+        long timeSinceLastViolation = currentTime - _lastViolationTimeMilliseconds;
+        int minimumIntervalMs = _configuration.MinimumViolationIntervalSeconds * 1000;
+        if (timeSinceLastViolation < minimumIntervalMs)
         {
-            // Violation during cooldown - increase stack
-            IncreaseStack();
-        }
-        else
-        {
-            // First violation after cooldown expired - start at stack 1
-            SetStack(1);
+            Log.Debug("Collision violation ignored: Player {PlayerName} violated {TimeSinceLastViolation}ms ago (minimum {MinimumInterval}ms)", 
+                _entryCar.Client?.Name ?? "Unknown", timeSinceLastViolation, minimumIntervalMs);
+            return;
         }
 
-        ApplyNoclipPenalty();
-    }
-
-    public void OnLapCompleted(LapCompletedEventArgs args)
-    {
-        if (!_configuration.Enabled || !_configuration.EnableCornerCutPenalty)
-            return;
-
-        if (args.Packet.Cuts < _configuration.MinCutsPerLap)
-            return;
-
+        _lastViolationTimeMilliseconds = currentTime;
         OnViolation();
 
         // Check if we're in cooldown period
