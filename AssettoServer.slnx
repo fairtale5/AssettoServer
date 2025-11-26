@@ -13,6 +13,7 @@
   <Project Path="RaceChallengePlugin\RaceChallengePlugin.csproj" Type="Classic C#" />
   <Project Path="RandomWeatherPlugin\RandomWeatherPlugin.csproj" Type="Classic C#" />
   <Project Path="NoclipPenaltiesPlugin\NoclipPenaltiesPlugin.csproj" Type="Classic C#" />
+  <Project Path="NoclipPenaltyReporterPlugin\NoclipPenaltyReporterPlugin.csproj" Type="Classic C#" />
   <Project Path="ReplayPlugin\ReplayPlugin.csproj" Type="Classic C#" />
   <Project Path="ReportPlugin\ReportPlugin.csproj" Type="Classic C#" />
   <Project Path="SamplePlugin\SamplePlugin.csproj" Type="Classic C#" />
